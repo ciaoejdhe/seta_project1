@@ -1,9 +1,3 @@
-“””
-SETA Bus Tracker - API per iPhone Shortcut
-Deploy su Render.com (piano gratuito)
-Fermata: Piazza Giovanni Paolo II - Reggio Emilia
-“””
-
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import urllib.request
@@ -153,4 +147,5 @@ def log_message(self, format, *args):
 if **name** == “**main**”:
 server = HTTPServer((“0.0.0.0”, PORT), Handler)
 print(f”Server avviato sulla porta {PORT}”)
+
 server.serve_forever()
