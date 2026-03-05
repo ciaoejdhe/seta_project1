@@ -1,4 +1,4 @@
-﻿from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import urllib.request
 import urllib.parse
@@ -67,6 +67,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
     def handle_bus(self):
         try:
             html = get_orari()
@@ -75,6 +76,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "messaggio": messaggio, "corse": corse})
         except Exception as e:
             self.send_json({"ok": False, "messaggio": "Errore: " + str(e), "corse": []})
+
     def send_json(self, data):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(200)
@@ -83,6 +85,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
+
     def log_message(self, format, *args):
         pass
 
