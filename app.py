@@ -32,12 +32,22 @@ def get_orari():
 
 def parse_corse(html):
     corse = []
-    pattern = r'<td[^>]*>\s*<strong>(\w+)</strong>.*?</td>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(\d+|\*)</td>'
-    matches = re.findall(pattern, html, re.DOTALL)
-    for m in matches:
-        linea = m[0].strip()
-        direzione = re.sub(r'<[^>]+>', '', m[1]).strip()
-        minuti = m[2].strip()
+    # Cerca le righe della tabella <tr>
+    rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+    for row in rows:
+        cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+        if len(cells) < 3:
+            continue
+        # Prima cella: numero linea (es. 07, 13...)
+        linea = re.sub(r'<[^>]+>', '', cells[0]).strip()
+        if not linea or not re.match(r'^\d+', linea):
+            continue
+        # Seconda cella: direzione
+        direzione = re.sub(r'<[^>]+>', '', cells[1]).strip()
+        # Terza cella: minuti
+        minuti = re.sub(r'<[^>]+>', '', cells[2]).strip()
+        if not minuti:
+            minuti = "*"
         corse.append({"linea": linea, "direzione": direzione, "minuti": minuti})
     return corse
 
@@ -45,17 +55,17 @@ def build_messaggio(corse):
     if not corse:
         return "Nessun bus trovato"
     lines = ["Bus P.za Giovanni Paolo II"]
-    for c in corse[:5]:
+    for c in corse[:6]:
         minuti = c["minuti"]
         if minuti == "*":
-            arrivo = "orario non disponibile"
+            arrivo = "orario non disp."
         elif minuti == "0":
             arrivo = "In arrivo!"
         elif minuti == "1":
             arrivo = "1 minuto"
         else:
-            arrivo = minuti + " minuti"
-        lines.append("Linea " + c["linea"] + " -> " + c["direzione"] + ": " + arrivo)
+            arrivo = minuti + " min"
+        lines.append("L." + c["linea"] + " " + c["direzione"] + " - " + arrivo)
     return "\n".join(lines)
 
 class Handler(BaseHTTPRequestHandler):
