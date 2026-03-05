@@ -25,35 +25,6 @@ def get_orari():
         "Referer": "https://www.setaweb.it/re/quantomanca",
         "Origin": "https://www.setaweb.it"
     }
-    req = urllib.request.Request
-@'
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import json
-import urllib.request
-import urllib.parse
-import re
-import os
-
-FERMATA = {
-    "risultato": "palina",
-    "nome_fermata": "PIAZZA GIOVANNI PAOLO II",
-    "qm_palina": "RE320162",
-    "x": "18",
-    "y": "16",
-    "refresh": "0"
-}
-
-PORT = int(os.environ.get("PORT", 8765))
-
-def get_orari():
-    url = "https://www.setaweb.it/re/quantomanca"
-    data = urllib.parse.urlencode(FERMATA).encode("utf-8")
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Referer": "https://www.setaweb.it/re/quantomanca",
-        "Origin": "https://www.setaweb.it"
-    }
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=10) as resp:
         html = resp.read().decode("utf-8")
