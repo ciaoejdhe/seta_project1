@@ -62,11 +62,25 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/bus":
             self.handle_bus()
+        elif self.path == "/debug":
+            self.handle_debug()
         elif self.path == "/":
             self.send_json({"status": "ok"})
         else:
             self.send_response(404)
             self.end_headers()
+
+    def handle_debug(self):
+        try:
+            html = get_orari()
+            body = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception as e:
+            self.send_json({"ok": False, "messaggio": str(e)})
 
     def handle_bus(self):
         try:
