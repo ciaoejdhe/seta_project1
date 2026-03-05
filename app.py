@@ -32,29 +32,36 @@ def get_orari():
 
 def parse_corse(html):
     corse = []
-    # Cerca le righe della tabella <tr>
     rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
     for row in rows:
         cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
         if len(cells) < 3:
             continue
-        # Prima cella: numero linea (es. 07, 13...)
         linea = re.sub(r'<[^>]+>', '', cells[0]).strip()
         if not linea or not re.match(r'^\d+', linea):
             continue
-        # Seconda cella: direzione
         direzione = re.sub(r'<[^>]+>', '', cells[1]).strip()
-        # Terza cella: minuti
         minuti = re.sub(r'<[^>]+>', '', cells[2]).strip()
+        minuti = re.sub(r'[^0-9*]', '', minuti)
         if not minuti:
             minuti = "*"
         corse.append({"linea": linea, "direzione": direzione, "minuti": minuti})
     return corse
 
-def build_messaggio(corse):
+def build_messaggio(corse, filtro_linea=None):
+    if filtro_linea:
+        filtro = filtro_linea.strip().lstrip("0") or "0"
+        corse = [c for c in corse if c["linea"].lstrip("0") == filtro]
+
     if not corse:
+        if filtro_linea:
+            return "Nessun bus trovato per la linea " + filtro_linea
         return "Nessun bus trovato"
+
     lines = ["Bus P.za Giovanni Paolo II"]
+    if filtro_linea:
+        lines = ["Linea " + filtro_linea + " - P.za Giovanni Paolo II"]
+
     for c in corse[:6]:
         minuti = c["minuti"]
         if minuti == "*":
@@ -70,11 +77,15 @@ def build_messaggio(corse):
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/bus":
-            self.handle_bus()
-        elif self.path == "/debug":
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        linea = params.get("linea", [None])[0]
+
+        if parsed.path == "/bus":
+            self.handle_bus(linea)
+        elif parsed.path == "/debug":
             self.handle_debug()
-        elif self.path == "/":
+        elif parsed.path == "/":
             self.send_json({"status": "ok"})
         else:
             self.send_response(404)
@@ -92,11 +103,11 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json({"ok": False, "messaggio": str(e)})
 
-    def handle_bus(self):
+    def handle_bus(self, filtro_linea=None):
         try:
             html = get_orari()
             corse = parse_corse(html)
-            messaggio = build_messaggio(corse)
+            messaggio = build_messaggio(corse, filtro_linea)
             self.send_json({"ok": True, "messaggio": messaggio, "corse": corse})
         except Exception as e:
             self.send_json({"ok": False, "messaggio": "Errore: " + str(e), "corse": []})
