@@ -5,20 +5,30 @@ import urllib.parse
 import re
 import os
 
-FERMATA = {
-    "risultato": "palina",
-    "nome_fermata": "PIAZZA GIOVANNI PAOLO II",
-    "qm_palina": "RE320162",
-    "x": "18",
-    "y": "16",
-    "refresh": "0"
+FERMATE = {
+    "piazza": {
+        "nome_display": "P.za Giovanni Paolo II",
+        "risultato": "palina",
+        "nome_fermata": "PIAZZA GIOVANNI PAOLO II",
+        "qm_palina": "RE320162",
+        "x": "18",
+        "y": "16",
+        "refresh": "0"
+    },
+    "marsala": {
+        "nome_display": "INC. Via Marsala",
+        "risultato": "palina",
+        "nome_fermata": "INC. VIA MARSALA",
+        "qm_palina": "RE310107",
+        "refresh": "0"
+    }
 }
 
 PORT = int(os.environ.get("PORT", 8765))
 
-def get_orari():
+def get_orari(fermata):
     url = "https://www.setaweb.it/re/quantomanca"
-    data = urllib.parse.urlencode(FERMATA).encode("utf-8")
+    data = urllib.parse.urlencode(fermata).encode("utf-8")
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Content-Type": "application/x-www-form-urlencoded",
@@ -48,7 +58,7 @@ def parse_corse(html):
         corse.append({"linea": linea, "direzione": direzione, "minuti": minuti})
     return corse
 
-def build_messaggio(corse, filtro_linea=None):
+def build_messaggio(corse, nome_display, filtro_linea=None):
     if filtro_linea:
         filtro = filtro_linea.strip().lstrip("0") or "0"
         corse = [c for c in corse if c["linea"].lstrip("0") == filtro]
@@ -58,9 +68,10 @@ def build_messaggio(corse, filtro_linea=None):
             return "Nessun bus trovato per la linea " + filtro_linea
         return "Nessun bus trovato"
 
-    lines = ["Bus P.za Giovanni Paolo II"]
     if filtro_linea:
-        lines = ["Linea " + filtro_linea + " - P.za Giovanni Paolo II"]
+        lines = ["Linea " + filtro_linea + " - " + nome_display]
+    else:
+        lines = ["Bus " + nome_display]
 
     for c in corse[:6]:
         minuti = c["minuti"]
@@ -80,34 +91,32 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
         linea = params.get("linea", [None])[0]
+        fermata_key = params.get("fermata", ["piazza"])[0].lower()
 
         if parsed.path == "/bus":
-            self.handle_bus(linea)
-        elif parsed.path == "/debug":
-            self.handle_debug()
+            self.handle_bus(fermata_key, linea)
+        elif parsed.path == "/fermate":
+            self.handle_fermate()
         elif parsed.path == "/":
             self.send_json({"status": "ok"})
         else:
             self.send_response(404)
             self.end_headers()
 
-    def handle_debug(self):
-        try:
-            html = get_orari()
-            body = html.encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        except Exception as e:
-            self.send_json({"ok": False, "messaggio": str(e)})
+    def handle_fermate(self):
+        lista = [{"chiave": k, "nome": v["nome_display"]} for k, v in FERMATE.items()]
+        self.send_json({"fermate": lista})
 
-    def handle_bus(self, filtro_linea=None):
+    def handle_bus(self, fermata_key, filtro_linea=None):
         try:
-            html = get_orari()
+            if fermata_key not in FERMATE:
+                self.send_json({"ok": False, "messaggio": "Fermata non trovata: " + fermata_key, "corse": []})
+                return
+            fermata = FERMATE[fermata_key]
+            nome_display = fermata["nome_display"]
+            html = get_orari(fermata)
             corse = parse_corse(html)
-            messaggio = build_messaggio(corse, filtro_linea)
+            messaggio = build_messaggio(corse, nome_display, filtro_linea)
             self.send_json({"ok": True, "messaggio": messaggio, "corse": corse})
         except Exception as e:
             self.send_json({"ok": False, "messaggio": "Errore: " + str(e), "corse": []})
